@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>障礙統計折線圖</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      padding: 0;
+    }
+
+    .header-container {
+      position: relative;
+      height: 50px;
+      margin-bottom: 10px;
+    }
+
+    .center-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      margin: 0;
+      line-height: 50px;
+      font-size: 18px;
+      white-space: nowrap;
+    }
+
+    .control-buttons {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translateY(-50%) translateX(90px);
+      display: flex;
+      gap: 10px;
+    }
+
+    .control-buttons button {
+      padding: 6px 12px;
+      font-size: 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .select-all {
+      background-color: #d5f8d5;
+    }
+
+    .clear-all {
+      background-color: #ffd6d6;
+    }
+
+    #controls-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+
+    #checkboxes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      max-width: 80%;
+      margin: 0 auto;
+    }
+
+    #checkboxes label, .dropdown-label {
+      display: flex;
+      align-items: center;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background-color: #f8f8f8;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+
+    .dropdown-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-toggle {
+      margin-left: auto;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 110%;
+      left: 0;
+      z-index: 1000;
+      background-color: white;
+      border: 1px solid #ccc;
+      padding: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+      border-radius: 10px;
+      min-width: 180px;
+    }
+
+    .dropdown-menu label {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      background-color: #f9f9f9;
+    }
+
+    #main-chart-area {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+    }
+
+    #summary-list {
+      width: 27%;
+      max-height: 600px;
+      overflow-y: auto;
+      background: #f8f8f8;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    #summary-list h4 {
+      margin-top: 0;
+      text-align: center;
+    }
+
+    #summary-list ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    #summary-list li {
+      font-size: 15px;
+      padding: 6px 8px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    #chart-container {
+      width: 65%;
+      background-color: #eee;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      border: 2px solid #ccc;
+    }
+
+    .date-range-container {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .date-range-container label {
+      display: flex;
+      flex-direction: row;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-container">
+    <h3 class="center-title">勾選障礙類型</h3>
+    <div class="control-buttons">
+      <button class="select-all" onclick="selectAll()">全選</button>
+      <button class="clear-all" onclick="clearAll()">清除</button>
+    </div>
+  </div>
+
+  <div id="controls-wrapper">
+    <div id="checkboxes"></div>
+  </div>
+
+  <div id="main-chart-area">
+    <div id="summary-list">
+      <div class="date-range-container">
+        <label>起始日期：
+          <input type="date" id="startDate" onchange="updateChart()" />
+        </label>
+        <label>結束日期：
+          <input type="date" id="endDate" onchange="updateChart()" />
+        </label>
+      </div>
+      <h4>出現次數排序</h4>
+      <ul id="summary-items"></ul>
+    </div>
+
+    <div id="chart-container">
+      <canvas id="lineChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    let chart;
+    let jsonData = {};
+    let dropdownOpen = false;
+
+    function getRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
+      return color;
+    }
+
+    fetch("statistics.json")
+      .then(res => res.json())
+      .then(data => {
+        jsonData = data;
+        const checkboxContainer = document.getElementById("checkboxes");
+        const nComboSubData = Object.keys(data).filter(k => k.startsWith("N+Combo盾_子分類_"));
+
+        for (const obstacle in data) {
+          if (obstacle.startsWith("N+Combo盾_子分類_")) continue;
+
+          if (obstacle === "N+Combo盾") {
+            const dropdownContainer = document.createElement("div");
+            dropdownContainer.className = "dropdown-container";
+
+            const dropdownLabel = document.createElement("div");
+            dropdownLabel.className = "dropdown-label";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = obstacle;
+            checkbox.checked = false;
+            checkbox.addEventListener("change", updateChart);
+
+            const labelText = document.createTextNode(obstacle);
+            const icon = document.createElement("span");
+            icon.className = "dropdown-toggle";
+            icon.textContent = "▼";
+            icon.addEventListener("click", (e) => {
+              e.stopPropagation();
+              const menu = document.getElementById("ncombo-sub-options");
+              dropdownOpen = !dropdownOpen;
+              menu.style.display = dropdownOpen ? "block" : "none";
+            });
+
+            dropdownLabel.appendChild(checkbox);
+            dropdownLabel.appendChild(labelText);
+            dropdownLabel.appendChild(icon);
+            dropdownContainer.appendChild(dropdownLabel);
+
+            const menu = document.createElement("div");
+            menu.className = "dropdown-menu";
+            menu.id = "ncombo-sub-options";
+
+            for (const subKey of nComboSubData) {
+              const subLabel = document.createElement("label");
+              const subCheckbox = document.createElement("input");
+              subCheckbox.type = "checkbox";
+              subCheckbox.value = subKey;
+              subCheckbox.checked = false;
+              subCheckbox.addEventListener("change", updateChart);
+              subLabel.appendChild(subCheckbox);
+              subLabel.appendChild(document.createTextNode(subKey.replace("N+Combo盾_子分類_", "")));
+              menu.appendChild(subLabel);
+            }
+
+            dropdownContainer.appendChild(menu);
+            checkboxContainer.appendChild(dropdownContainer);
+          } else {
+            const label = document.createElement("label");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = obstacle;
+            checkbox.checked = false;
+            checkbox.addEventListener("change", updateChart);
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(obstacle));
+            checkboxContainer.appendChild(label);
+          }
+        }
+      });
+
+    function updateChart() {
+      const selected = Array.from(document.querySelectorAll("#checkboxes input:checked")).map(cb => cb.value);
+      const startDateInput = document.getElementById("startDate").value;
+      const endDateInput = document.getElementById("endDate").value;
+      const startDate = startDateInput ? new Date(startDateInput) : null;
+      const endDate = endDateInput ? new Date(endDateInput) : null;
+
+      const allDatesSet = new Set();
+      selected.forEach(obstacle => {
+        Object.keys(jsonData[obstacle]).forEach(date => {
+          const dateObj = new Date(date);
+          if ((!startDate || dateObj >= startDate) && (!endDate || dateObj <= endDate)) {
+            allDatesSet.add(date);
+          }
+        });
+      });
+
+      const allDates = Array.from(allDatesSet).sort((a, b) => new Date(a) - new Date(b));
+
+      const datasets = selected.map(obstacle => {
+        const counts = allDates.map(date => jsonData[obstacle][date] || 0);
+        return {
+          label: obstacle,
+          data: counts,
+          borderColor: getRandomColor(),
+          fill: false
+        };
+      });
+
+      const ctx = document.getElementById("lineChart").getContext("2d");
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: allDates,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: '日期' } },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: '出現次數' },
+              ticks: {
+                stepSize: 1,
+                callback: function(value) {
+                  if (Number.isInteger(value)) return value;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      updateSummaryList(selected, startDate, endDate);
+    }
+
+    function updateSummaryList(selected, startDate, endDate) {
+      const summaryContainer = document.getElementById("summary-items");
+      summaryContainer.innerHTML = "";
+
+      const summaryCounts = selected.map(key => {
+        const total = Object.entries(jsonData[key])
+          .filter(([date]) => {
+            const d = new Date(date);
+            return (!startDate || d >= startDate) && (!endDate || d <= endDate);
+          })
+          .reduce((sum, [, val]) => sum + val, 0);
+        return { key, total };
+      });
+
+      summaryCounts.sort((a, b) => b.total - a.total);
+      for (const item of summaryCounts) {
+        const li = document.createElement("li");
+        li.textContent = `${item.key}: ${item.total} 次`;
+        summaryContainer.appendChild(li);
+      }
+    }
+
+    function selectAll() {
+      document.querySelectorAll('#checkboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
+      updateChart();
+    }
+
+    function clearAll() {
+      document.querySelectorAll('#checkboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
+      updateChart();
+    }
+
+
+      function getEndOfThisWeekSunday() {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday
+    const daysToSunday = (7 - dayOfWeek) % 7;
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() + daysToSunday);
+    return sunday.toISOString().slice(0, 10);
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const startInput = document.getElementById("startDate");
+    const endInput = document.getElementById("endDate");
+
+    if (startInput && endInput) {
+      startInput.value = "2024-12-28";
+      endInput.value = getEndOfThisWeekSunday();
+    }
+
+    updateChart(); // 預設載入後自動畫圖
+  });
+  </script>
+
+</body>
+</html>
