@@ -10,13 +10,11 @@
       margin: 20px;
       padding: 0;
     }
-
     .header-container {
       position: relative;
       height: 50px;
       margin-bottom: 10px;
     }
-
     .center-title {
       position: absolute;
       left: 50%;
@@ -26,7 +24,6 @@
       font-size: 18px;
       white-space: nowrap;
     }
-
     .control-buttons {
       position: absolute;
       top: 50%;
@@ -35,7 +32,6 @@
       display: flex;
       gap: 10px;
     }
-
     .control-buttons button {
       padding: 6px 12px;
       font-size: 14px;
@@ -43,21 +39,17 @@
       border-radius: 8px;
       cursor: pointer;
     }
-
     .select-all {
       background-color: #d5f8d5;
     }
-
     .clear-all {
       background-color: #ffd6d6;
     }
-
     #controls-wrapper {
       display: flex;
       justify-content: center;
       margin-bottom: 30px;
     }
-
     #checkboxes {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -65,7 +57,6 @@
       max-width: 80%;
       margin: 0 auto;
     }
-
     #checkboxes label, .dropdown-label {
       display: flex;
       align-items: center;
@@ -77,24 +68,20 @@
       box-sizing: border-box;
       cursor: pointer;
     }
-
     input[type="checkbox"] {
       width: 20px;
       height: 20px;
       margin-right: 10px;
     }
-
     .dropdown-container {
       position: relative;
       display: inline-block;
     }
-
     .dropdown-toggle {
       margin-left: auto;
       cursor: pointer;
       font-size: 16px;
     }
-
     .dropdown-menu {
       display: none;
       position: absolute;
@@ -108,7 +95,6 @@
       border-radius: 10px;
       min-width: 180px;
     }
-
     .dropdown-menu label {
       display: flex;
       align-items: center;
@@ -119,13 +105,11 @@
       margin-bottom: 6px;
       background-color: #f9f9f9;
     }
-
     #main-chart-area {
       display: flex;
       justify-content: center;
       gap: 30px;
     }
-
     #summary-list {
       width: 27%;
       max-height: 600px;
@@ -135,23 +119,19 @@
       border-radius: 10px;
       padding: 10px;
     }
-
     #summary-list h4 {
       margin-top: 0;
       text-align: center;
     }
-
     #summary-list ul {
       list-style: none;
       padding-left: 0;
     }
-
     #summary-list li {
       font-size: 15px;
       padding: 6px 8px;
       border-bottom: 1px solid #ddd;
     }
-
     #chart-container {
       width: 65%;
       background-color: #eee;
@@ -160,7 +140,6 @@
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
       border: 2px solid #ccc;
     }
-
     .date-range-container {
       display: flex;
       flex-direction: row;
@@ -168,7 +147,6 @@
       margin-bottom: 12px;
       font-size: 14px;
     }
-
     .date-range-container label {
       display: flex;
       flex-direction: row;
@@ -176,7 +154,6 @@
   </style>
 </head>
 <body>
-
   <div class="header-container">
     <h3 class="center-title">勾選障礙類型</h3>
     <div class="control-buttons">
@@ -184,25 +161,18 @@
       <button class="clear-all" onclick="clearAll()">清除</button>
     </div>
   </div>
-
   <div id="controls-wrapper">
     <div id="checkboxes"></div>
   </div>
-
   <div id="main-chart-area">
     <div id="summary-list">
       <div class="date-range-container">
-        <label>起始日期：
-          <input type="date" id="startDate" onchange="updateChart()" />
-        </label>
-        <label>結束日期：
-          <input type="date" id="endDate" onchange="updateChart()" />
-        </label>
+        <label>起始日期：<input type="date" id="startDate" onchange="updateChart()" /></label>
+        <label>結束日期：<input type="date" id="endDate" onchange="updateChart()" /></label>
       </div>
       <h4>出現次數排序</h4>
       <ul id="summary-items"></ul>
     </div>
-
     <div id="chart-container">
       <canvas id="lineChart"></canvas>
     </div>
@@ -211,13 +181,10 @@
   <script>
     let chart;
     let jsonData = {};
-    let dropdownOpen = false;
 
     function getRandomColor() {
       const letters = '0123456789ABCDEF';
-      let color = '#';
-      for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * 16)];
-      return color;
+      return '#' + Array.from({ length: 6 }, () => letters[Math.floor(Math.random() * 16)]).join('');
     }
 
     fetch("statistics.json")
@@ -225,12 +192,19 @@
       .then(data => {
         jsonData = data;
         const checkboxContainer = document.getElementById("checkboxes");
-        const nComboSubData = Object.keys(data).filter(k => k.startsWith("N+Combo盾_子分類_"));
+        const keys = Object.keys(data);
 
-        for (const obstacle in data) {
-          if (obstacle.startsWith("N+Combo盾_子分類_")) continue;
+        const groupMap = {
+          "N+Combo盾": keys.filter(k => k.startsWith("N+Combo盾_子分類_")),
+          "高C盾": keys.filter(k => k.startsWith("高C盾_子分類_"))
+        };
 
-          if (obstacle === "N+Combo盾") {
+        const processed = new Set([...groupMap["N+Combo盾"], ...groupMap["高C盾"]]);
+
+        for (const key of keys) {
+          if (processed.has(key)) continue;
+
+          if (key === "N+Combo盾" || key === "高C盾") {
             const dropdownContainer = document.createElement("div");
             dropdownContainer.className = "dropdown-container";
 
@@ -239,19 +213,17 @@
 
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
-            checkbox.value = obstacle;
-            checkbox.checked = false;
+            checkbox.value = key;
             checkbox.addEventListener("change", updateChart);
 
-            const labelText = document.createTextNode(obstacle);
+            const labelText = document.createTextNode(key);
             const icon = document.createElement("span");
             icon.className = "dropdown-toggle";
             icon.textContent = "▼";
             icon.addEventListener("click", (e) => {
               e.stopPropagation();
-              const menu = document.getElementById("ncombo-sub-options");
-              dropdownOpen = !dropdownOpen;
-              menu.style.display = dropdownOpen ? "block" : "none";
+              const menu = dropdownContainer.querySelector(".dropdown-menu");
+              menu.style.display = menu.style.display === "block" ? "none" : "block";
             });
 
             dropdownLabel.appendChild(checkbox);
@@ -261,19 +233,16 @@
 
             const menu = document.createElement("div");
             menu.className = "dropdown-menu";
-            menu.id = "ncombo-sub-options";
-
-            for (const subKey of nComboSubData) {
+            (groupMap[key] || []).forEach(subKey => {
               const subLabel = document.createElement("label");
               const subCheckbox = document.createElement("input");
               subCheckbox.type = "checkbox";
               subCheckbox.value = subKey;
-              subCheckbox.checked = false;
               subCheckbox.addEventListener("change", updateChart);
               subLabel.appendChild(subCheckbox);
-              subLabel.appendChild(document.createTextNode(subKey.replace("N+Combo盾_子分類_", "")));
+              subLabel.appendChild(document.createTextNode(subKey.replace(key + "_子分類_", "")));
               menu.appendChild(subLabel);
-            }
+            });
 
             dropdownContainer.appendChild(menu);
             checkboxContainer.appendChild(dropdownContainer);
@@ -281,11 +250,10 @@
             const label = document.createElement("label");
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
-            checkbox.value = obstacle;
-            checkbox.checked = false;
+            checkbox.value = key;
             checkbox.addEventListener("change", updateChart);
             label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(obstacle));
+            label.appendChild(document.createTextNode(key));
             checkboxContainer.appendChild(label);
           }
         }
@@ -293,41 +261,29 @@
 
     function updateChart() {
       const selected = Array.from(document.querySelectorAll("#checkboxes input:checked")).map(cb => cb.value);
-      const startDateInput = document.getElementById("startDate").value;
-      const endDateInput = document.getElementById("endDate").value;
-      const startDate = startDateInput ? new Date(startDateInput) : null;
-      const endDate = endDateInput ? new Date(endDateInput) : null;
+      const startDate = new Date(document.getElementById("startDate").value || "2000-01-01");
+      const endDate = new Date(document.getElementById("endDate").value || new Date());
 
       const allDatesSet = new Set();
       selected.forEach(obstacle => {
-        Object.keys(jsonData[obstacle]).forEach(date => {
-          const dateObj = new Date(date);
-          if ((!startDate || dateObj >= startDate) && (!endDate || dateObj <= endDate)) {
-            allDatesSet.add(date);
-          }
+        Object.keys(jsonData[obstacle] || {}).forEach(date => {
+          const d = new Date(date);
+          if (d >= startDate && d <= endDate) allDatesSet.add(date);
         });
       });
-
       const allDates = Array.from(allDatesSet).sort((a, b) => new Date(a) - new Date(b));
 
-      const datasets = selected.map(obstacle => {
-        const counts = allDates.map(date => jsonData[obstacle][date] || 0);
-        return {
-          label: obstacle,
-          data: counts,
-          borderColor: getRandomColor(),
-          fill: false
-        };
-      });
+      const datasets = selected.map(key => ({
+        label: key,
+        data: allDates.map(date => jsonData[key]?.[date] || 0),
+        borderColor: getRandomColor(),
+        fill: false
+      }));
 
-      const ctx = document.getElementById("lineChart").getContext("2d");
       if (chart) chart.destroy();
-      chart = new Chart(ctx, {
+      chart = new Chart(document.getElementById("lineChart").getContext("2d"), {
         type: 'line',
-        data: {
-          labels: allDates,
-          datasets: datasets
-        },
+        data: { labels: allDates, datasets },
         options: {
           responsive: true,
           scales: {
@@ -335,12 +291,7 @@
             y: {
               beginAtZero: true,
               title: { display: true, text: '出現次數' },
-              ticks: {
-                stepSize: 1,
-                callback: function(value) {
-                  if (Number.isInteger(value)) return value;
-                }
-              }
+              ticks: { stepSize: 1, callback: v => Number.isInteger(v) ? v : null }
             }
           }
         }
@@ -350,59 +301,41 @@
     }
 
     function updateSummaryList(selected, startDate, endDate) {
-      const summaryContainer = document.getElementById("summary-items");
-      summaryContainer.innerHTML = "";
-
-      const summaryCounts = selected.map(key => {
-        const total = Object.entries(jsonData[key])
-          .filter(([date]) => {
-            const d = new Date(date);
-            return (!startDate || d >= startDate) && (!endDate || d <= endDate);
-          })
-          .reduce((sum, [, val]) => sum + val, 0);
+      const container = document.getElementById("summary-items");
+      container.innerHTML = "";
+      const summary = selected.map(key => {
+        const total = Object.entries(jsonData[key] || {}).filter(([d]) => {
+          const dt = new Date(d);
+          return dt >= startDate && dt <= endDate;
+        }).reduce((sum, [, val]) => sum + val, 0);
         return { key, total };
-      });
-
-      summaryCounts.sort((a, b) => b.total - a.total);
-      for (const item of summaryCounts) {
+      }).sort((a, b) => b.total - a.total);
+      summary.forEach(({ key, total }) => {
         const li = document.createElement("li");
-        li.textContent = `${item.key}: ${item.total} 次`;
-        summaryContainer.appendChild(li);
-      }
+        li.textContent = `${key}: ${total} 次`;
+        container.appendChild(li);
+      });
     }
 
     function selectAll() {
       document.querySelectorAll('#checkboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
       updateChart();
     }
-
     function clearAll() {
       document.querySelectorAll('#checkboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
       updateChart();
     }
-
-
-      function getEndOfThisWeekSunday() {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sunday
-    const daysToSunday = (7 - dayOfWeek) % 7;
-    const sunday = new Date(today);
-    sunday.setDate(today.getDate() + daysToSunday);
-    return sunday.toISOString().slice(0, 10);
-  }
-
-  window.addEventListener('DOMContentLoaded', () => {
-    const startInput = document.getElementById("startDate");
-    const endInput = document.getElementById("endDate");
-
-    if (startInput && endInput) {
-      startInput.value = "2024-12-28";
-      endInput.value = getEndOfThisWeekSunday();
+    function getEndOfThisWeekSunday() {
+      const today = new Date();
+      const day = today.getDay();
+      today.setDate(today.getDate() + (7 - day) % 7);
+      return today.toISOString().slice(0, 10);
     }
-
-    updateChart(); // 預設載入後自動畫圖
-  });
+    window.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("startDate").value = "2024-12-28";
+      document.getElementById("endDate").value = getEndOfThisWeekSunday();
+      updateChart();
+    });
   </script>
-
 </body>
 </html>
